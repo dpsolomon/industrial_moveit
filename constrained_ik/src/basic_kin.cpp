@@ -30,6 +30,8 @@ namespace basic_kin
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
+using Eigen::Vector3d;
+using std::string;
 
 bool BasicKin::calcFwdKin(const VectorXd &joint_angles, Eigen::Affine3d &pose) const
 {
@@ -84,11 +86,10 @@ bool BasicKin::calcFwdKin(const VectorXd &joint_angles,
 
 bool BasicKin::calcJacobian(const VectorXd &joint_angles, MatrixXd &jacobian) const
 {
-  KDL::JntArray kdl_joints;
-
   if (!checkInitialized()) return false;
   if (!checkJoints(joint_angles)) return false;
 
+  KDL::JntArray kdl_joints;
   EigenToKDL(joint_angles, kdl_joints);
 
   // compute jacobian
@@ -97,6 +98,45 @@ bool BasicKin::calcJacobian(const VectorXd &joint_angles, MatrixXd &jacobian) co
 
   KDLToEigen(kdl_jacobian, jacobian);
   return true;
+}
+
+bool BasicKin::calcJacobianLinkToLink(const string &link1, const Vector3d &p1,
+                                      const string &link2, const Vector3d &p2,
+                                      const VectorXd &joint_angles, MatrixXd &jacobian) const
+{
+    if (!checkInitialized()) return false;
+//    if (!checkJoints(joint_angles)) return false; //TODO need to check joint angles for a sub-chain
+
+    KDL::JntArray kdl_joints;
+    EigenToKDL(joint_angles, kdl_joints);
+
+    //create sub-chain
+    KDL::Chain chain;
+    if (!kdl_tree_.getChain(link1, link2, chain))
+    {
+      ROS_ERROR_STREAM("Failed to initialize KDL between URDF links: '" <<
+                       link1 << "' and '" << link2 <<"'");
+      return false;
+    }
+
+    //initiate solver
+    boost::scoped_ptr<KDL::ChainJntToJacSolver> solver;
+    solver.reset(new KDL::ChainJntToJacSolver(chain));
+
+    //solve
+    KDL::Jacobian kdl_jacobian(chain.getNrOfJoints());
+    solver->JntToJac(kdl_joints, kdl_jacobian);
+
+    KDLToEigen(kdl_jacobian, jacobian);
+    return true;
+
+}
+
+bool BasicKin::calcJacobianLinkToWorld(const string &link, const Vector3d &pr,
+                                       const Vector3d &pw,
+                                       const VectorXd &joint_angles, MatrixXd &jacobian) const
+{
+
 }
 
 bool BasicKin::checkJoints(const VectorXd &vec) const
@@ -116,9 +156,8 @@ bool BasicKin::checkJoints(const VectorXd &vec) const
                 i, joint_limits_(i,0), vec(i), joint_limits_(i,1));
       jnt_bounds_ok = false;
     }
-  if (jnt_bounds_ok == false) return false;
 
-  return true;
+  return jnt_bounds_ok;
 }
 
 bool BasicKin::getJointNames(std::vector<std::string> &names) const
@@ -306,7 +345,7 @@ bool BasicKin::linkTransforms(const VectorXd &joint_angles,
         link_num = getLinkNum(links[ii]);
         if (fk_solver_->JntToCart(kdl_joints, poses[ii], link_num<0? -1:link_num+1) < 0) /*root=0, link1=1, therefore add +1 to link num*/
         {
-            ROS_ERROR_STREAM("Failed to calculate FK for joint " << n);
+            ROS_ERROR_STREAM("Failed to calculate FK for joint " << ii);
             return false;
         }
     }

@@ -68,12 +68,41 @@ public:
                   const std::string &tip,
                   KDL::Frame &pose);
 
-  /**@brief Calculated jacobian of robot given joint angles
+  /**@brief Calculate jacobian of robot given joint angles from base to tip
    * @param joint_angles Input vector of joint angles
    * @param jacobian Output jacobian
    * @return True if calculation successful, False if anything is wrong (including uninitialized BasicKin)
    */
   bool calcJacobian(const Eigen::VectorXd &joint_angles, Eigen::MatrixXd &jacobian) const;
+
+//TODO unwritten
+  /**@brief Calculate jacobian of robot given joint angles from p1 on link1 to p2 on link2.
+   * Note: link1 must be closer to base than link2.
+   * For attached objects: use link of attached object, and p in terms of that link.
+   * @param link1 Name of one link
+   * @param p1 Point on link1
+   * @param link2 Name of other link
+   * @param p2 Point on link2
+   * @param joint_angles Input vector of joint angles
+   * @param jacobian Output jacobian
+   * @return True if calculation successful, False if anything is wrong (including uninitialized BasicKin)
+   */
+  bool calcJacobianLinkToLink(const std::string &link1, const Eigen::Vector3d &p1,
+                              const std::string &link2, const Eigen::Vector3d &p2,
+                              const Eigen::VectorXd &joint_angles, Eigen::MatrixXd &jacobian) const;
+
+  //TODO unwritten
+  /**@brief Calculate jacobian of robot given joint angles from pr on link to pw in world.
+   * @param link Name of link on robot
+   * @param pr Point on robot link
+   * @param pw Point in world (given in base frame coordinates)
+   * @param joint_angles Input vector of joint angles
+   * @param jacobian Output jacobian
+   * @return True if calculation successful, False if anything is wrong (including uninitialized BasicKin)
+   */
+  bool calcJacobianLinkToWorld(const std::string &link, const Eigen::Vector3d &pr,
+                               const Eigen::Vector3d &pw,
+                               const Eigen::VectorXd &joint_angles, Eigen::MatrixXd &jacobian) const;
 
   /**@brief Checks if BasicKin is initialized (init() has been run: urdf model loaded, etc.)
    * @return True if init() has completed successfully
